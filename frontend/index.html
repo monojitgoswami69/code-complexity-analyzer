@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Complexity Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .input-section, .output-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        #codeInput {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #codeInput:focus {
+            border-color: #667eea;
+        }
+
+        .options {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .option label {
+            cursor: pointer;
+            user-select: none;
+            color: #555;
+        }
+
+        .language-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .language-input input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .language-input input:focus {
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #result {
+            width: 100%;
+            height: 500px;
+            padding: 20px;
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 1.2em;
+            padding: 20px;
+        }
+
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            color: #155724;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Code Complexity Analyzer</h1>
+            <p>Analyze time and space complexity of your code using AI</p>
+        </header>
+
+        <div class="content">
+            <div class="input-section">
+                <h2 class="section-title">Input Code</h2>
+
+                <textarea 
+                    id="codeInput" 
+                    placeholder="Paste your code here..."
+                ></textarea>
+
+                <button id="analyzeBtn" onclick="analyzeCode()">Analyze Complexity</button>
+            </div>
+
+            <div class="output-section">
+                <h2 class="section-title">Analysis Results</h2>
+                <div id="result">Results will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function analyzeCode() {
+            const codeInput = document.getElementById('codeInput').value;
+            const resultDiv = document.getElementById('result');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            if (!codeInput.trim()) {
+                resultDiv.innerHTML = '<div class="error">Please enter some code to analyze.</div>';
+                return;
+            }
+
+            // Show loading
+            resultDiv.innerHTML = '<div class="loading">⏳ Analyzing code...</div>';
+            analyzeBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code: codeInput })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.result) {
+                    displayResult(data.result);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.error || 'Unknown error occurred'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Failed to connect to API: ${error.message}<br><br>Make sure the backend server is running on port 8000.</div>`;
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function displayResult(result) {
+            const resultDiv = document.getElementById('result');
+            
+            let html = '<div class="success">✓ Analysis Complete</div>\n\n';
+            
+            html += `<strong>═══════════════════════════════════════</strong>\n`;
+            html += `<strong>COMPLEXITY ANALYSIS (Worst Case)</strong>\n`;
+            html += `<strong>═══════════════════════════════════════</strong>\n\n`;
+            html += `⏱️  Time Complexity:  ${result.time}\n`;
+            html += `💾 Space Complexity: ${result.space}\n`;
+
+            resultDiv.innerHTML = html;
+        }
+
+        // Allow Enter key to submit (Ctrl+Enter)
+        document.getElementById('codeInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                analyzeCode();
+            }
+        });
+    </script>
+</body>
+</html>

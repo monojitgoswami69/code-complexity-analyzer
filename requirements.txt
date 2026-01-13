@@ -2,9 +2,14 @@
 pydantic>=2.0.0
 httpx>=0.25.0
 tenacity>=8.2.0
+python-dotenv>=1.0.0
 
 # CLI & Output formatting
 rich>=13.0.0
+
+# Backend API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
 
 # Type checking (optional dev dependency)
 # mypy>=1.0.0
