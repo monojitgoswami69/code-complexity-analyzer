@@ -1,265 +1,232 @@
-# 🔍 Code Complexity Analyzer
+# Code Complexity Analyzer
 
-A modern, advanced Python tool to analyze **time and space complexity** of code in **any programming language** using Groq's blazing-fast LLM inference.
+An intelligent code complexity analysis tool powered by Google Gemini AI that provides comprehensive algorithmic complexity insights for multiple programming languages.
 
-![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+## Overview
 
-## ✨ Features
+The Code Complexity Analyzer is a professional development tool designed to help developers understand and optimize their code's performance characteristics. It leverages advanced AI models to analyze source code and provide detailed complexity metrics, performance visualizations, and actionable optimization suggestions.
 
-- **🌍 Multi-language Support** - Analyze code in Python, JavaScript, Java, C++, Go, Rust, and 50+ languages
-- **⚡ Lightning Fast** - Powered by Groq's fast LLM inference API
-- **📊 Detailed Analysis** - Get Big-O notation for both time and space complexity
-- **🔬 Function-level Breakdown** - Individual analysis for each function/method
-- **💡 Optimization Suggestions** - Actionable tips to improve your code
-- **🎨 Beautiful Output** - Rich terminal formatting with tables and colors
-- **📁 Multiple Formats** - Output as JSON, Markdown, or formatted tables
-- **🔄 Compare Mode** - Compare complexity of two implementations
-- **💻 Interactive Mode** - REPL-style analysis session
+### Key Features
 
-## 🚀 Quick Start
+- **Multi-language Support**: JavaScript, TypeScript, Python, C++, C, Java, Go, Rust, Ruby, and PHP
+- **Comprehensive Analysis**: Best, average, and worst-case time complexity evaluation
+- **Space Complexity Assessment**: Memory usage analysis with detailed breakdowns
+- **Interactive Visualizations**: Real-time performance curves with mathematical precision
+- **Code Quality Insights**: Automated detection of optimization opportunities
+- **Smart File Management**: Automatic language detection and intelligent file naming
+- **Professional Reports**: Export-ready PDF reports with detailed analysis
+- **Real-time Processing**: Live syntax highlighting with IDE-like experience
 
-### 1. Install Dependencies
+## Architecture
+
+### Frontend
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite for optimized development and production builds
+- **UI Components**: Custom component library with Tailwind CSS
+- **Syntax Highlighting**: Prism.js with Night Owl theme
+- **Charts**: Recharts for performance visualization
+- **Icons**: Lucide React for consistent iconography
+
+### Backend
+- **Framework**: FastAPI with Python 3.8+
+- **AI Model**: Google Gemini 2.5 Flash Lite
+- **API Design**: RESTful endpoints with comprehensive error handling
+- **Validation**: Pydantic models for type safety
+- **Configuration**: Environment-based settings management
+
+## Installation
+
+### Prerequisites
+
+- Node.js 16+ and npm
+- Python 3.8+ and pip
+- Google Gemini API key
+
+### Frontend Setup
 
 ```bash
-cd code-complexity-analyzer
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at `http://localhost:3000`
+
+### Backend Setup
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your GEMINI_API_KEY
+
+python server.py
 ```
 
-### 2. Set Your Groq API Key
+The backend API will be available at `http://localhost:8080`
 
-Get your free API key from [Groq Console](https://console.groq.com):
+## Configuration
 
-```bash
-export GROQ_API_KEY='your-api-key-here'
-```
+### Backend Environment Variables
 
-### 3. Analyze Code!
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GEMINI_API_KEY` | - | Google Gemini API key (required) |
+| `HOST` | 0.0.0.0 | Server host address |
+| `PORT` | 8080 | Server port number |
+| `DEBUG` | false | Enable debug mode |
+| `LOG_LEVEL` | INFO | Logging verbosity level |
+| `GEMINI_MODEL` | gemini-2.5-flash-lite | AI model identifier |
+| `MAX_TOKENS` | 4096 | Maximum response tokens |
+| `TEMPERATURE` | 0.3 | Model creativity parameter |
 
-```bash
-# Analyze a file
-python analyze.py solution.py
+### Frontend Environment Variables
 
-# Analyze inline code
-python analyze.py --code "def fib(n): return fib(n-1) + fib(n-2) if n > 1 else n"
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_URL` | http://localhost:8080 | Backend API base URL |
 
-# Interactive mode
-python analyze.py --interactive
-```
+## Usage
 
-## 📖 Usage
+### Basic Analysis
 
-### Command Line Options
+1. **Create or Upload Code**: Start with a new snippet or upload existing files
+2. **Select Language**: Choose from supported programming languages or use auto-detection
+3. **Run Analysis**: Click the "Analyse" button to process your code
+4. **Review Results**: Examine complexity metrics, performance charts, and optimization suggestions
+5. **Export Report**: Generate PDF reports for documentation or sharing
 
-```
-usage: analyze.py [-h] [file] [-c CODE] [-i] [--compare FILE1 FILE2]
-                  [-l LANGUAGE] [-q] [--no-functions] [--no-suggestions]
-                  [--best-worst] [-o {rich,table,json,markdown}]
-                  [-f OUTPUT_FILE] [-v]
+### Advanced Features
 
-Analyze time and space complexity of code
-```
+#### Performance Visualization
+- Interactive charts showing operations vs input size
+- Separate visualizations for time and space complexity
+- Mathematical precision with 2x scaling progression
 
-### Examples
+#### Code Quality Assessment
+- Automated detection of performance bottlenecks
+- Memory usage optimization recommendations
+- Security and best practice suggestions
 
-```bash
-# Analyze a Python file
-python analyze.py bubble_sort.py
+#### Smart File Management
+- Automatic language detection based on syntax
+- Intelligent filename suggestions for untitled snippets
+- Support for multiple file formats and extensions
 
-# Analyze JavaScript with JSON output
-python analyze.py --file sort.js --output json
+## API Reference
 
-# Quick analysis (faster, less detailed)
-python analyze.py merge_sort.cpp --quick
+### POST /analyze
 
-# Compare two implementations
-python analyze.py --compare v1_slow.py v2_optimized.py
+Analyze code complexity and return detailed metrics.
 
-# Save analysis to markdown file
-python analyze.py algorithm.py --output markdown -f analysis.md
-
-# Specify language hint
-python analyze.py mystery_code.txt --language python
-
-# Include best/worst case analysis
-python analyze.py search.java --best-worst
-
-# Verbose mode with full explanations
-python analyze.py complex_algo.rs -v
-```
-
-### Interactive Mode
-
-Start an interactive session to analyze multiple code snippets:
-
-```bash
-python analyze.py --interactive
-```
-
-Then paste code and press Enter twice to analyze.
-
-## 📦 Project Structure
-
-```
-code-complexity-analyzer/
-├── analyze.py              # Main CLI entry point
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
-├── core/
-│   ├── __init__.py
-│   ├── models.py          # Pydantic data models
-│   ├── analyzer.py        # Core analysis engine
-│   └── prompts.py         # LLM prompt templates
-├── providers/
-│   ├── __init__.py
-│   └── groq_provider.py   # Groq API integration
-└── utils/
-    ├── __init__.py
-    ├── file_utils.py      # File handling utilities
-    └── formatters.py      # Output formatters
-```
-
-## 🔧 Programmatic Usage
-
-Use the analyzer in your own Python code:
-
-```python
-import asyncio
-from core import CodeComplexityAnalyzer, AnalysisOptions
-
-async def main():
-    code = """
-    def binary_search(arr, target):
-        left, right = 0, len(arr) - 1
-        while left <= right:
-            mid = (left + right) // 2
-            if arr[mid] == target:
-                return mid
-            elif arr[mid] < target:
-                left = mid + 1
-            else:
-                right = mid - 1
-        return -1
-    """
-    
-    async with CodeComplexityAnalyzer() as analyzer:
-        result = await analyzer.analyze(code)
-        
-        print(f"Time Complexity: {result.overall_time_complexity}")
-        print(f"Space Complexity: {result.overall_space_complexity}")
-        print(f"Summary: {result.summary}")
-
-asyncio.run(main())
-```
-
-### Synchronous API
-
-```python
-from core import CodeComplexityAnalyzer
-
-analyzer = CodeComplexityAnalyzer()
-result = analyzer.analyze_sync("for i in range(n): print(i)")
-print(result.overall_time_complexity)  # O(n)
-```
-
-### Analysis Options
-
-```python
-from core import AnalysisOptions
-
-options = AnalysisOptions(
-    analyze_functions=True,       # Analyze each function separately
-    include_suggestions=True,     # Include optimization tips
-    detailed_mode=True,           # Detailed explanations
-    language_hint="Python",       # Specify language
-    include_best_worst_case=True, # Include best/worst/avg case
-)
-
-result = await analyzer.analyze(code, options)
-```
-
-## 📊 Output Formats
-
-### Rich (Default)
-Beautiful terminal output with colors, tables, and formatting.
-
-### JSON
+**Request Body:**
 ```json
 {
-  "language": "Python",
-  "overall_time_complexity": "O(n²)",
-  "overall_space_complexity": "O(1)",
-  "summary": "Nested loops result in quadratic time complexity",
-  "functions": [...],
-  "optimization_suggestions": [...]
+  "code": "function example(arr) { return arr.sort(); }",
+  "filename": "example.js",
+  "language": "JavaScript"
 }
 ```
 
-### Markdown
-Formatted markdown suitable for documentation.
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "fileName": "example.js",
+    "language": "JavaScript",
+    "timestamp": "Feb 02, 10:30 AM",
+    "timeComplexity": {
+      "best": {
+        "notation": "O(n log n)",
+        "description": "Optimized merge sort implementation",
+        "rating": "Good"
+      },
+      "average": {
+        "notation": "O(n log n)",
+        "description": "Standard comparison-based sorting",
+        "rating": "Good"
+      },
+      "worst": {
+        "notation": "O(n log n)",
+        "description": "Worst-case merge sort performance",
+        "rating": "Good"
+      }
+    },
+    "spaceComplexity": {
+      "notation": "O(n)",
+      "description": "Additional memory for merge operations",
+      "rating": "Fair"
+    },
+    "issues": [],
+    "summary": "Efficient sorting implementation with optimal time complexity"
+  }
+}
+```
 
-### Table
-ASCII table format for plain terminals.
+### GET /health
 
-## 🧠 How It Works
+Check API health and model availability.
 
-1. **Code Input** - Accept code from file, string, or interactive input
-2. **Language Detection** - Auto-detect programming language from extension or content
-3. **Prompt Engineering** - Build carefully crafted prompts for accurate analysis
-4. **LLM Analysis** - Send to Groq's fast inference API (llama-3.3-70b)
-5. **Result Parsing** - Parse structured JSON response into typed models
-6. **Caching** - Cache results to avoid redundant API calls
-7. **Formatting** - Display results in chosen format
+### GET /
 
-## 🎯 Complexity Classes
+Get API information and status.
 
-The analyzer recognizes these complexity classes:
+## Development
 
-| Notation | Name | Example |
-|----------|------|---------|
-| O(1) | Constant | Hash table lookup |
-| O(log n) | Logarithmic | Binary search |
-| O(n) | Linear | Linear search |
-| O(n log n) | Linearithmic | Merge sort |
-| O(n²) | Quadratic | Bubble sort |
-| O(n³) | Cubic | Matrix multiplication |
-| O(2ⁿ) | Exponential | Recursive fibonacci |
-| O(n!) | Factorial | Permutations |
+### Project Structure
 
-## ⚙️ Configuration
+```
+code-complexity-analyzer/
+├── frontend/                 # React TypeScript application
+│   ├── components/          # UI components
+│   │   ├── EditorView.tsx   # Code editor interface
+│   │   └── DashboardView.tsx # Analysis results display
+│   ├── services/            # API integration
+│   │   └── geminiService.ts # Backend communication
+│   └── types.ts            # TypeScript definitions
+├── backend/                 # Python FastAPI server
+│   ├── app/                 # Application modules
+│   │   ├── main.py         # FastAPI routes
+│   │   ├── gemini_provider.py # AI model integration
+│   │   ├── models.py       # Pydantic schemas
+│   │   └── config.py       # Settings management
+│   └── server.py           # Application entry point
+└── README.md               # Project documentation
+```
 
-### Environment Variables
+### Build Process
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GROQ_API_KEY` | Your Groq API key | Yes |
+**Frontend Production Build:**
+```bash
+cd frontend
+npm run build
+```
 
-### Groq Models
+**Backend Testing:**
+```bash
+cd backend
+python test_analysis.py
+```
 
-The analyzer uses these models (with automatic fallback):
+## Contributing
 
-- **Primary**: `llama-3.3-70b-versatile` - Best reasoning capability
-- **Fallback**: `llama-3.1-8b-instant` - Faster, for rate limit recovery
+We welcome contributions to improve the Code Complexity Analyzer. Please ensure all submissions follow these guidelines:
 
-## 🤝 Contributing
+1. Maintain professional code style without decorative elements
+2. Include comprehensive documentation for new features
+3. Ensure backward compatibility with existing APIs
+4. Add appropriate error handling and validation
+5. Follow the established TypeScript and Python conventions
 
-Contributions are welcome! Feel free to:
+## License
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+This project is available under the MIT License. See LICENSE file for details.
 
-## 📝 License
+## Support
 
-MIT License - feel free to use in your own projects!
-
-## 🙏 Acknowledgments
-
-- [Groq](https://groq.com) for blazing-fast LLM inference
-- [Rich](https://github.com/Textualize/rich) for beautiful terminal formatting
-- [Pydantic](https://pydantic.dev) for data validation
-
----
-
-Made with ❤️ for developers who care about algorithmic efficiency
+For technical support or feature requests, please create an issue in the project repository with detailed information about your requirements or encountered problems.

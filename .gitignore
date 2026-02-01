@@ -1,36 +1,43 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environment
-venv/
-env/
-.venv/
-.env/
-
 # Environment variables
 .env
+.env.local
+.env.production
 
-# IDE
+# Dependencies
+node_modules/
+venv/
+.venv/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# Logs
+*.log
+logs/
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
+# Temporary files
+*.tmp
+*.temp
 
-# Logs
-*.log
+# API keys and secrets (backup protection)
+**/GEMINI_API_KEY*
+**/API_KEY*
+**/*secret*
+**/*key*.txt
