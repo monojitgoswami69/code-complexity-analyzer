@@ -1,5 +1,5 @@
 """
-Pydantic models for the Complexity Analyzer API.
+Pydantic models for the Codalyzer API.
 """
 from __future__ import annotations
 

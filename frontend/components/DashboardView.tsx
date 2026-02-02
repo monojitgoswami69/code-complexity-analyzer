@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import { AnalysisResult, ComplexityRating, Issue } from '../types';
 import { 
   Share2, Download, AlertTriangle, CheckCircle, Info, Cpu, 
-  AlertOctagon, Layers, ArrowUpRight
+  AlertOctagon, Layers, ArrowUpRight, RefreshCw, Loader2
 } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend
@@ -12,6 +12,8 @@ import {
 interface DashboardViewProps {
   result: AnalysisResult;
   onNewAnalysis: () => void;
+  onReanalyze: () => void;
+  isReanalyzing: boolean;
 }
 
 const MetricCard: React.FC<{
@@ -105,7 +107,7 @@ const IssueCard: React.FC<{ issue: Issue }> = ({ issue }) => {
   );
 };
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnalysis }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnalysis, onReanalyze, isReanalyzing }) => {
   // Function to calculate operations based on complexity notation
   const calculateOps = (n: number, notation: string): number => {
     const notationLower = notation.toLowerCase().replace(/\s/g, '');
@@ -129,27 +131,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnaly
     if (notationLower.includes('o(n³)') || notationLower.includes('o(n^3)') || notationLower.includes('n³') || notationLower.includes('n^3')) {
       return n * n * n;
     }
+    if ((notationLower.includes('2^n') && notationLower.includes('*n')) || notationLower.includes('n*2^n')) {
+      return Math.pow(2, n) * n;
+    }
     if (notationLower.includes('o(2^n)') || notationLower.includes('2^n') || notationLower.includes('exponential')) {
-      return Math.pow(2, Math.min(n, 30)); // Cap to prevent overflow
+       return Math.pow(2, n);
     }
     if (notationLower.includes('o(n!)') || notationLower.includes('factorial')) {
-      // Factorial grows too fast, use approximation capped
       let result = 1;
-      for (let i = 2; i <= Math.min(n, 12); i++) result *= i;
+      for (let i = 2; i <= n; i++) result *= i;
       return result;
     }
     // Default to O(n) if unknown
     return n;
   };
 
-  // Generate 2x progression with 10 data points: 50, 100, 200, 400...
+  // Determine appropriate input range based on complexity
+  const getChartRange = (notation: string): number[] => {
+    const lower = notation.toLowerCase().replace(/\s/g, '');
+    
+    // Factorial or Exponential: Very small range (linear 0-11)
+    if (lower.includes('n!') || lower.includes('factorial') || lower.includes('2^n') || lower.includes('exponential')) {
+      return Array.from({ length: 13 }, (_, i) => i); // 0, 1, ... 12
+    }
+    
+    // Quadratic / Cubic: Mid range linear (0-100)
+    if (lower.includes('n²') || lower.includes('n^2') || lower.includes('n³') || lower.includes('n^3')) {
+       return Array.from({ length: 11 }, (_, i) => i * 10); // 0, 10, 20... 100
+    }
+    
+    // Linear / Log: Large range linear (0-1000)
+    return Array.from({ length: 11 }, (_, i) => i * 100); // 0, 100, 200... 1000
+  };
+
+  // Generate chart data based on dynamic range
   const timeChartData = useMemo(() => {
-    const baseValues = Array.from({ length: 10 }, (_, i) => 50 * Math.pow(2, i));
-    // 50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600
-    
     const worstCaseNotation = result.timeComplexity.worst.notation;
+    const values = getChartRange(worstCaseNotation);
     
-    return baseValues.map((n) => {
+    return values.map((n) => {
       const ops = Math.round(calculateOps(n, worstCaseNotation));
       return {
         n: n,
@@ -162,11 +182,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnaly
 
   // Generate space complexity chart data
   const spaceChartData = useMemo(() => {
-    const baseValues = Array.from({ length: 10 }, (_, i) => 50 * Math.pow(2, i));
-    
     const spaceNotation = result.spaceComplexity.notation;
+    const values = getChartRange(spaceNotation);
     
-    return baseValues.map((n) => {
+    return values.map((n) => {
       const memory = Math.round(calculateOps(n, spaceNotation));
       return {
         n: n,
@@ -214,7 +233,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnaly
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(59, 130, 246); // Blue
-    doc.text('Complexity Analyzer', margin, yPos);
+    doc.text('Codalyzer', margin, yPos);
     yPos += 8;
 
     // Generation date/time
@@ -374,7 +393,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnaly
     addWrappedText(disclaimer, margin + 5, yPos + 11, contentWidth - 10, 3);
 
     // Save the PDF
-    doc.save(`complexity-analysis-${result.fileName.replace(/\.[^/.]+$/, '')}.pdf`);
+    doc.save(`codalyzer-analysis-${result.fileName.replace(/\.[^/.]+$/, '')}.pdf`);
   };
 
   return (
@@ -606,12 +625,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ result, onNewAnaly
               )}
            </div>
 
-           <div className="mt-6 pt-4 border-t border-slate-800">
+           <div className="mt-6 pt-4 border-t border-slate-800 flex gap-3">
              <button 
               onClick={onNewAnalysis}
-              className="w-full py-3 rounded-lg border border-slate-700 bg-slate-800/50 text-xs font-bold text-blue-400 hover:bg-slate-800 hover:text-blue-300 transition-all uppercase tracking-wider"
+              className="flex-1 py-3 rounded-lg border border-slate-700 bg-slate-800/50 text-xs font-bold text-blue-400 hover:bg-slate-800 hover:text-blue-300 transition-all uppercase tracking-wider"
              >
                View Full Source Code
+             </button>
+             <button 
+              onClick={onReanalyze}
+              disabled={isReanalyzing}
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                isReanalyzing 
+                  ? 'border border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed' 
+                  : 'border border-amber-600/50 bg-amber-900/20 text-amber-400 hover:bg-amber-900/40 hover:text-amber-300'
+              }`}
+             >
+               {isReanalyzing ? (
+                 <><Loader2 size={14} className="animate-spin" /> Reanalyzing...</>
+               ) : (
+                 <><RefreshCw size={14} /> Reanalyze</>
+               )}
              </button>
            </div>
         </div>

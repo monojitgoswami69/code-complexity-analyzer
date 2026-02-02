@@ -1,5 +1,5 @@
 """
-Complexity Analyzer Backend.
+Codalyzer Backend.
 """
 
 __version__ = "1.0.0"

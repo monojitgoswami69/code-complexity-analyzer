@@ -1,10 +1,10 @@
-# Code Complexity Analyzer
+# Codalyzer
 
 An intelligent code complexity analysis tool powered by Google Gemini AI that provides comprehensive algorithmic complexity insights for multiple programming languages.
 
 ## Overview
 
-The Code Complexity Analyzer is a professional development tool designed to help developers understand and optimize their code's performance characteristics. It leverages advanced AI models to analyze source code and provide detailed complexity metrics, performance visualizations, and actionable optimization suggestions.
+Codalyzer is a professional development tool designed to help developers understand and optimize their code's performance characteristics. It leverages advanced AI models to analyze source code and provide detailed complexity metrics, performance visualizations, and actionable optimization suggestions.
 
 ### Key Features
 
@@ -181,7 +181,7 @@ Get API information and status.
 ### Project Structure
 
 ```
-code-complexity-analyzer/
+codalyzer/
 ├── frontend/                 # React TypeScript application
 │   ├── components/          # UI components
 │   │   ├── EditorView.tsx   # Code editor interface
@@ -215,7 +215,7 @@ python test_analysis.py
 
 ## Contributing
 
-We welcome contributions to improve the Code Complexity Analyzer. Please ensure all submissions follow these guidelines:
+We welcome contributions to improve Codalyzer. Please ensure all submissions follow these guidelines:
 
 1. Maintain professional code style without decorative elements
 2. Include comprehensive documentation for new features

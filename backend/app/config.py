@@ -1,5 +1,5 @@
 """
-Configuration for Complexity Analyzer Backend.
+Configuration for Codalyzer Backend.
 """
 from __future__ import annotations
 
@@ -54,4 +54,4 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("google").setLevel(logging.WARNING)
 
-logger = logging.getLogger("complexity-analyzer")
+logger = logging.getLogger("codalyzer")

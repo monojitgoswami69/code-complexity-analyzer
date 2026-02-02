@@ -5,6 +5,12 @@ export interface FileNode {
   language: string;
 }
 
+// Extended file with storage metadata
+export interface StoredFileNode extends FileNode {
+  contentHash: string;
+  lastModified: number;
+}
+
 export enum ComplexityRating {
   Excellent = 'Excellent',
   Good = 'Good',

@@ -1,26 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { EditorView } from './components/EditorView';
 import { DashboardView } from './components/DashboardView';
-import { INITIAL_FILES } from './constants';
-import { AnalysisResult, FileNode } from './types';
+import { AnalysisResult, StoredFileNode } from './types';
 import { analyzeCodeWithGemini } from './services/geminiService';
-import { Layout, AlertTriangle, ArrowLeft } from 'lucide-react';
+import {
+  getStoredFiles,
+  saveFiles,
+  getStoredReports,
+  getReportForFile,
+  saveReport,
+  deleteReport,
+  getActiveFileId,
+  setActiveFileId as saveActiveFileId,
+  computeContentHash,
+  StoredFile,
+  StoredReport
+} from './services/storageService';
+import { AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'editor' | 'dashboard'>('editor');
-  const [files, setFiles] = useState<FileNode[]>(INITIAL_FILES);
-  const [activeFileId, setActiveFileId] = useState<string>(INITIAL_FILES[0].id);
+  const [files, setFiles] = useState<StoredFile[]>([]);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load files from localStorage on mount
+  useEffect(() => {
+    const storedFiles = getStoredFiles();
+    const storedActiveId = getActiveFileId();
+    
+    setFiles(storedFiles);
+    
+    if (storedFiles.length > 0) {
+      // Use stored active file if it exists, otherwise use first file
+      const activeId = storedActiveId && storedFiles.some(f => f.id === storedActiveId)
+        ? storedActiveId
+        : storedFiles[0].id;
+      setActiveFileId(activeId);
+    }
+    
+    setIsInitialized(true);
+  }, []);
+
+  // Save files to localStorage whenever they change
+  useEffect(() => {
+    if (isInitialized) {
+      saveFiles(files);
+    }
+  }, [files, isInitialized]);
+
+  // Save active file ID whenever it changes
+  useEffect(() => {
+    if (isInitialized && activeFileId) {
+      saveActiveFileId(activeFileId);
+    }
+  }, [activeFileId, isInitialized]);
+
+  const activeFile = files.find(f => f.id === activeFileId) || null;
+
+  // Check if current file has a valid (unchanged) report
+  const currentReport = activeFile ? getReportForFile(activeFile.id) : null;
+  const hasValidReport = currentReport && currentReport.contentHash === activeFile?.contentHash;
 
   const handleFileCreate = () => {
-    const newFile: FileNode = {
+    const newFile: StoredFile = {
       id: Date.now().toString(),
       name: `Snippet-${files.length + 1}`,
-      content: 'Start coding here...',
-      language: 'JavaScript'
+      content: '// Start coding here...',
+      language: 'JavaScript',
+      contentHash: computeContentHash('// Start coding here...'),
+      lastModified: Date.now()
     };
     setFiles([...files, newFile]);
     setActiveFileId(newFile.id);
@@ -28,65 +81,86 @@ const App: React.FC = () => {
 
   const handleFileUpload = async (file: File) => {
     const text = await file.text();
-    const newFile: FileNode = {
+    const newFile: StoredFile = {
       id: Date.now().toString(),
       name: file.name,
       content: text,
-      language: 'JavaScript'
+      language: 'JavaScript',
+      contentHash: computeContentHash(text),
+      lastModified: Date.now()
     };
     setFiles([...files, newFile]);
     setActiveFileId(newFile.id);
   };
 
   const handleFileDelete = (id: string) => {
-    if (files.length <= 1) return;
-    
     const newFiles = files.filter(f => f.id !== id);
     setFiles(newFiles);
-    if (activeFileId === id && newFiles.length > 0) {
-      setActiveFileId(newFiles[0].id);
+    deleteReport(id);
+    
+    if (activeFileId === id) {
+      setActiveFileId(newFiles.length > 0 ? newFiles[0].id : null);
     }
   };
 
   const handleCodeChange = (id: string, newCode: string) => {
-    setFiles(files.map(f => f.id === id ? { ...f, content: newCode } : f));
+    setFiles(files.map(f => {
+      if (f.id === id) {
+        return {
+          ...f,
+          content: newCode,
+          contentHash: computeContentHash(newCode),
+          lastModified: Date.now()
+        };
+      }
+      return f;
+    }));
   };
 
   const handleLanguageChange = (id: string, language: string) => {
-    setFiles(files.map(f => f.id === id ? { ...f, language } : f));
+    setFiles(files.map(f => f.id === id ? { ...f, language, lastModified: Date.now() } : f));
   };
 
-  const handleAnalyze = async (code: string) => {
+  const handleAnalyze = async (code: string, forceReanalyze: boolean = false) => {
+    if (!activeFile) return;
+
+    // Check if we have a valid cached report and not forcing reanalysis
+    if (!forceReanalyze && hasValidReport && currentReport) {
+      setAnalysisResult(currentReport.result);
+      setView('dashboard');
+      return;
+    }
+
     setIsAnalyzing(true);
     setErrorMessage(null);
     try {
-      const currentFile = files.find(f => f.id === activeFileId);
-      if (!currentFile) return;
-
-      const result = await analyzeCodeWithGemini(code, currentFile.name);
+      const result = await analyzeCodeWithGemini(code, activeFile.name);
       
       // Auto-rename and language update for new snippets
-      const isNewSnippet = currentFile.name.startsWith('Snippet-') || currentFile.name === 'untitled';
+      const isNewSnippet = activeFile.name.startsWith('Snippet-') || activeFile.name === 'untitled';
       
       if (isNewSnippet) {
-        const updates: Partial<typeof currentFile> = {};
+        const updates: Partial<StoredFile> = {};
         
         // Update name if suggested
-        if (result.suggestedName && result.suggestedName !== currentFile.name) {
+        if (result.suggestedName && result.suggestedName !== activeFile.name) {
           updates.name = result.suggestedName;
           result.fileName = result.suggestedName;
         }
         
         // Update language from API detection
-        if (result.language && result.language !== currentFile.language) {
+        if (result.language && result.language !== activeFile.language) {
           updates.language = result.language;
         }
         
         if (Object.keys(updates).length > 0) {
-          setFiles(files.map(f => f.id === activeFileId ? { ...f, ...updates } : f));
+          setFiles(files.map(f => f.id === activeFileId ? { ...f, ...updates, lastModified: Date.now() } : f));
         }
       }
 
+      // Save report to localStorage
+      saveReport(activeFile.id, activeFile.contentHash, result);
+      
       setAnalysisResult(result);
       setView('dashboard');
     } catch (error) {
@@ -97,33 +171,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleViewReport = () => {
+    if (currentReport) {
+      setAnalysisResult(currentReport.result);
+      setView('dashboard');
+    }
+  };
+
+  const handleReanalyze = () => {
+    if (activeFile) {
+      handleAnalyze(activeFile.content, true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0b1120] text-slate-200 font-sans flex flex-col">
-      {/* Top Navigation Bar */}
-      <nav className="h-12 border-b border-slate-800 bg-[#0b1120] flex items-center justify-between px-4 sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-600 p-1 rounded-md shadow-lg shadow-blue-900/50">
-            <Layout size={18} className="text-white" />
-          </div>
-          <span className="font-bold text-lg tracking-tight text-white">Complexity Analyzer <span className="text-blue-500 text-xs font-mono font-normal ml-1 opacity-70">// v2.4</span></span>
-        </div>
-
-        <div className="flex items-center gap-4">
-           {view === 'dashboard' && (
-             <button 
-               onClick={() => setView('editor')}
-               className="flex items-center gap-2 px-4 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all border border-slate-700"
-             >
-               <ArrowLeft size={14} /> Back to Editor
-             </button>
-           )}
-
-           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs cursor-pointer shadow-lg shadow-blue-900/20">
-             CA
-           </div>
-        </div>
-      </nav>
-
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative">
         {errorMessage && (
@@ -145,10 +207,19 @@ const App: React.FC = () => {
             onCodeChange={handleCodeChange}
             onLanguageChange={handleLanguageChange}
             onAnalyze={handleAnalyze} 
+            onViewReport={handleViewReport}
             isAnalyzing={isAnalyzing}
+            hasValidReport={!!hasValidReport}
           />
         ) : (
-          analysisResult && <DashboardView result={analysisResult} onNewAnalysis={() => setView('editor')} />
+          analysisResult && (
+            <DashboardView 
+              result={analysisResult} 
+              onNewAnalysis={() => setView('editor')}
+              onReanalyze={handleReanalyze}
+              isReanalyzing={isAnalyzing}
+            />
+          )
         )}
       </main>
     </div>

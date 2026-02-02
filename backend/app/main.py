@@ -1,5 +1,5 @@
 """
-FastAPI application for Complexity Analyzer.
+FastAPI application for Codalyzer.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from app import __version__
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
-    logger.info("Complexity Analyzer Backend Starting...")
+    logger.info("Codalyzer Backend Starting...")
     logger.info(f"Model: {settings.GEMINI_MODEL}")
     logger.info(f"Server: {settings.HOST}:{settings.PORT}")
     
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Complexity Analyzer API",
+    title="Codalyzer API",
     description="AI-powered code complexity analysis using Gemini",
     version=__version__,
     lifespan=lifespan,
@@ -60,7 +60,7 @@ app.add_middleware(
 async def root():
     """Root endpoint."""
     return {
-        "name": "Complexity Analyzer API",
+        "name": "Codalyzer API",
         "version": __version__,
         "model": settings.GEMINI_MODEL,
         "status": "ok" if gemini_provider.is_available() else "unavailable",

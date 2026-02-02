@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
-import { FileNode } from '../types';
+import { FileNode, StoredFileNode } from '../types';
+import { StoredFile } from '../services/storageService';
 import { 
   FileCode, Plus, Upload, Trash2, Box, Loader2, Zap, ChevronDown,
-  FileJson, FileType, Braces, Hash, Coffee, Gem, Code2, Terminal
+  FileJson, FileType, Braces, Hash, Coffee, Gem, Code2, Terminal, Eye, FolderOpen, Layout
 } from 'lucide-react';
 
 // Get language-specific icon
@@ -35,16 +36,18 @@ const getLanguageIcon = (language: string, size: number = 20, className: string 
 };
 
 interface EditorViewProps {
-  files: FileNode[];
-  activeFileId: string;
+  files: StoredFile[];
+  activeFileId: string | null;
   onFileSelect: (id: string) => void;
   onFileCreate: () => void;
   onFileDelete: (id: string) => void;
   onFileUpload: (file: File) => void;
   onCodeChange: (id: string, newCode: string) => void;
   onLanguageChange: (id: string, language: string) => void;
-  onAnalyze: (code: string) => void;
+  onAnalyze: (code: string, forceReanalyze?: boolean) => void;
+  onViewReport: () => void;
   isAnalyzing: boolean;
+  hasValidReport: boolean;
 }
 
 // Supported languages with their Prism identifiers
@@ -115,9 +118,9 @@ const detectLanguage = (fileName: string, content: string): string => {
 
 export const EditorView: React.FC<EditorViewProps> = ({ 
   files, activeFileId, onFileSelect, onFileCreate, onFileDelete, onFileUpload, 
-  onCodeChange, onLanguageChange, onAnalyze, isAnalyzing 
+  onCodeChange, onLanguageChange, onAnalyze, onViewReport, isAnalyzing, hasValidReport 
 }) => {
-  const activeFile = files.find(f => f.id === activeFileId) || files[0];
+  const activeFile = activeFileId ? files.find(f => f.id === activeFileId) : null;
   const [lineCount, setLineCount] = useState(1);
   const [parseStatus, setParseStatus] = useState<'parsing' | 'ready' | 'error'>('ready');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -216,10 +219,19 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const prismLanguage = getPrismLanguage(activeFile?.language || 'JavaScript');
 
   return (
-    <div className="flex h-[calc(100vh-48px)] bg-[#0b1120] text-slate-300 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#0b1120] text-slate-300 font-sans overflow-hidden">
       
       {/* Flattened Sidebar */}
       <div className="w-64 border-r border-slate-800 flex flex-col bg-[#0b1120]">
+        
+        {/* Branding Header */}
+        <div className="h-14 flex items-center gap-3 px-4 border-b border-slate-800 bg-[#0b1120]">
+          <div className="bg-blue-600 p-1 rounded-md shadow-lg shadow-blue-900/50">
+            <Layout size={16} className="text-white" />
+          </div>
+          <span className="font-bold text-base tracking-tight text-white">Codalyzer <span className="text-blue-500 text-[10px] font-mono font-normal ml-0.5 opacity-70">// v2.5</span></span>
+        </div>
+
         <div className="p-4 border-b border-slate-800">
            <div className="flex items-center gap-2 mb-4 text-slate-400">
              <Box size={16} />
@@ -251,28 +263,34 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
-          <div className="space-y-1">
-            {files.map(file => (
-              <div 
-                key={file.id}
-                onClick={() => onFileSelect(file.id)}
-                className={`group flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors ${file.id === activeFileId ? 'bg-slate-800 text-blue-400 border border-slate-700/50' : 'text-slate-400 hover:bg-slate-900'}`}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <FileCode size={14} className={file.id === activeFileId ? 'text-blue-400' : 'text-slate-500'} />
-                  <span className="text-sm">{file.name}</span>
-                </div>
-                {files.length > 1 && (
+          {files.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
+              <FolderOpen size={32} className="mb-3 opacity-50" />
+              <p className="text-xs text-center">No snippets yet</p>
+              <p className="text-[10px] text-center mt-1 opacity-60">Create or upload a file</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {files.map(file => (
+                <div 
+                  key={file.id}
+                  onClick={() => onFileSelect(file.id)}
+                  className={`group flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors ${file.id === activeFileId ? 'bg-slate-800 text-blue-400 border border-slate-700/50' : 'text-slate-400 hover:bg-slate-900'}`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <FileCode size={14} className={file.id === activeFileId ? 'text-blue-400' : 'text-slate-500'} />
+                    <span className="text-sm">{file.name}</span>
+                  </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); onFileDelete(file.id); }}
                     className="opacity-0 group-hover:opacity-100 hover:text-red-400 p-1"
                   >
                     <Trash2 size={12} />
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-slate-800 text-[10px] text-slate-600 flex justify-between">
@@ -284,23 +302,62 @@ export const EditorView: React.FC<EditorViewProps> = ({
       {/* Main Editor Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Editor Tabs/Header */}
-        <div className="h-12 border-b border-slate-800 flex items-center justify-between px-4 bg-[#0b1120]">
-          <div className="flex items-center gap-2 text-sm">
-             {getLanguageIcon(activeFile?.language || 'JavaScript', 22)}
-             <span className="font-medium text-slate-200">{activeFile?.name}</span>
-             {isAnalyzing && <div className="text-xs text-blue-400 animate-pulse flex items-center gap-1 ml-2"><Loader2 size={12} className="animate-spin"/> Analyzing...</div>}
+        {!activeFile ? (
+          /* Empty Workspace Welcome Screen */
+          <div className="flex-1 flex flex-col items-center justify-center bg-[#0f172a]">
+            <div className="text-center max-w-md px-8">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-slate-700 flex items-center justify-center">
+                <FolderOpen size={40} className="text-blue-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-slate-200 mb-2">Welcome to Codalyzer</h2>
+              <p className="text-slate-400 text-sm mb-8">
+                Start by creating a new code snippet or uploading an existing file to analyze its complexity.
+              </p>
+              <div className="flex gap-4 justify-center">
+                <button 
+                  onClick={onFileCreate}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-600/20"
+                >
+                  <Plus size={18} /> New Snippet
+                </button>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-700"
+                >
+                  <Upload size={18} /> Upload File
+                </button>
+              </div>
+            </div>
           </div>
-          
-          <button 
-            onClick={() => onAnalyze(activeFile.content)}
-            disabled={isAnalyzing}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all ${isAnalyzing ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20'}`}
-          >
-            <Zap size={14} />
-            {isAnalyzing ? 'Analysing...' : 'Analyse'}
-          </button>
-        </div>
+        ) : (
+          <>
+            {/* Editor Tabs/Header */}
+            <div className="h-12 border-b border-slate-800 flex items-center justify-between px-4 bg-[#0b1120]">
+              <div className="flex items-center gap-2 text-sm">
+                 {getLanguageIcon(activeFile?.language || 'JavaScript', 22)}
+                 <span className="font-medium text-slate-200">{activeFile?.name}</span>
+                 {isAnalyzing && <div className="text-xs text-blue-400 animate-pulse flex items-center gap-1 ml-2"><Loader2 size={12} className="animate-spin"/> Analyzing...</div>}
+              </div>
+              
+              {hasValidReport ? (
+                <button 
+                  onClick={onViewReport}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/20"
+                >
+                  <Eye size={14} />
+                  View Analysis
+                </button>
+              ) : (
+                <button 
+                  onClick={() => activeFile && onAnalyze(activeFile.content)}
+                  disabled={isAnalyzing || !activeFile}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all ${isAnalyzing || !activeFile ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20'}`}
+                >
+                  <Zap size={14} />
+                  {isAnalyzing ? 'Analysing...' : 'Analyse'}
+                </button>
+              )}
+            </div>
 
         {/* Code Area with Prism Syntax Highlighting */}
         <div className="flex-1 flex relative overflow-hidden bg-[#0f172a]">
@@ -346,7 +403,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
                 <textarea
                   ref={textareaRef}
                   value={activeFile?.content || ''}
-                  onChange={(e) => onCodeChange(activeFile.id, e.target.value)}
+                  onChange={(e) => activeFile && onCodeChange(activeFile.id, e.target.value)}
                   onKeyDown={handleKeyDown}
                   onScroll={handleScroll}
                   spellCheck={false}
@@ -404,6 +461,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
               )}
            </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

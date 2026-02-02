@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Server entry point for Complexity Analyzer Backend.
+Server entry point for Codalyzer Backend.
 """
 import uvicorn
 from app.config import settings, logger
@@ -8,7 +8,7 @@ from app.config import settings, logger
 
 def main():
     """Run the server."""
-    logger.info(f"Starting Complexity Analyzer on {settings.HOST}:{settings.PORT}")
+    logger.info(f"Starting Codalyzer on {settings.HOST}:{settings.PORT}")
     
     uvicorn.run(
         "app.main:app",
