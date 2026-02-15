@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            monaco: ['monaco-editor'],
+            monaco: ['modern-monaco'],
             icons: ['developer-icons', 'lucide-react'],
             recharts: ['recharts'],
             jspdf: ['jspdf'],

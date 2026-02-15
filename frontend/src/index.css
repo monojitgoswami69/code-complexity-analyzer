@@ -225,3 +225,102 @@ html.dark .monaco-editor-background {
 html.dark .monaco-editor .scroll-decoration {
   box-shadow: none !important;
 }
+
+html.light .monaco-editor,
+html.light .monaco-editor .margin,
+html.light .monaco-editor-background {
+  background-color: #EEF1F5 !important;
+}
+
+html.light .monaco-editor .scroll-decoration {
+  box-shadow: none !important;
+}
+
+/* ─── Line Highlight Customization ───────────────────────────────────── */
+
+/* Remove any borders from line highlights */
+.monaco-editor .view-overlays .current-line {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Dark Mode Line Highlight - Subtle white tint */
+html.dark .monaco-editor .view-overlays .current-line {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Light Mode Line Highlight - Subtle dark tint */
+html.light .monaco-editor .view-overlays .current-line {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Hide gutter highlight border if any */
+.monaco-editor .margin-view-overlays .current-line-margin {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ─── Minimap Customization ──────────────────────────────────────────── */
+
+/* Force transparent background for the minimap area */
+.monaco-editor .minimap,
+.monaco-editor .minimap-canvas-container {
+  background-color: transparent !important;
+}
+
+/* Very subtle selection/search "blob" overlays in the minimap */
+.monaco-editor .minimap .minimap-decorations-layer {
+  opacity: 0.15 !important;
+}
+
+/* Make the minimap content slightly transparent to blend better */
+.monaco-editor .minimap {
+  opacity: 0.65;
+}
+
+/* Base style for the slider - start fully transparent */
+.monaco-editor .minimap-slider .minimap-slider-decoration,
+.monaco-editor .minimap-slider .minimap-slider-horizontal {
+  background-color: transparent !important;
+  transition: background-color 0.2s;
+}
+
+/* Dark Mode - Catppuccin Mocha Slider Overrides */
+
+/* 1. Minimap Hover - Show subtle highlight */
+html.dark .monaco-editor .minimap:hover .minimap-slider-decoration,
+html.dark .monaco-editor .minimap:hover .minimap-slider-horizontal {
+  background: rgba(203, 166, 247, 0.12) !important;
+}
+
+/* 2. Slider Hover - Brighter highlight */
+html.dark .monaco-editor .minimap-slider:hover .minimap-slider-decoration,
+html.dark .monaco-editor .minimap-slider:hover .minimap-slider-horizontal {
+  background: rgba(203, 166, 247, 0.22) !important;
+}
+
+/* 3. Active State - Brightest highlight */
+html.dark .monaco-editor .minimap-slider.active .minimap-slider-decoration,
+html.dark .monaco-editor .minimap-slider.active .minimap-slider-horizontal {
+  background: rgba(203, 166, 247, 0.35) !important;
+}
+
+/* Light Mode - Catppuccin Latte Slider Overrides */
+
+/* 1. Minimap Hover - Show subtle highlight */
+html.light .monaco-editor .minimap:hover .minimap-slider-decoration,
+html.light .monaco-editor .minimap:hover .minimap-slider-horizontal {
+  background: rgba(136, 57, 239, 0.12) !important;
+}
+
+/* 2. Slider Hover - Brighter highlight */
+html.light .monaco-editor .minimap-slider:hover .minimap-slider-decoration,
+html.light .monaco-editor .minimap-slider:hover .minimap-slider-horizontal {
+  background: rgba(136, 57, 239, 0.22) !important;
+}
+
+/* 3. Active State - Brightest highlight */
+html.light .monaco-editor .minimap-slider.active .minimap-slider-decoration,
+html.light .monaco-editor .minimap-slider.active .minimap-slider-horizontal {
+  background: rgba(136, 57, 239, 0.35) !important;
+}

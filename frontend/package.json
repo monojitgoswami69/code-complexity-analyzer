@@ -10,13 +10,11 @@
   },
   "dependencies": {
     "@catppuccin/vscode": "^3.18.1",
-    "@monaco-editor/react": "^4.7.0",
     "developer-icons": "^6.0.5",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.563.0",
     "magika": "^1.0.0",
     "modern-monaco": "^0.3.7",
-    "monaco-editor": "^0.55.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Editor, { loader } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
-
-// Configure monaco to use local installation instead of CDN
-loader.config({ monaco });
+/* Removed @monaco-editor/react and monaco-editor imports */
+import { ModernMonacoEditor } from './ModernMonacoEditor';
 
 import { StoredFile } from '../services/storageService';
 import { useTheme } from '../hooks/useTheme';
@@ -125,8 +122,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const editorLanguage = PRISM_LANGUAGE_MAP[activeFile?.language || 'JavaScript'] || 'javascript';
-
   const bg = isDark ? 'bg-[#1E1E2A]' : 'bg-[#E5E8EE]';
   const bgEditor = isDark ? 'bg-[#232332]' : 'bg-[#EEF1F5]';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
@@ -226,49 +221,15 @@ export const EditorView: React.FC<EditorViewProps> = ({
             </div>
           ) : (
             <div className="flex-1 relative overflow-hidden">
-              <Editor
-                height="100%"
-                language={editorLanguage}
-                theme={isDark ? 'vs-dark' : 'light'}
-                value={activeFile.content || ''}
-                onChange={(value) => onCodeChange(activeFile.id, value || '')}
-                options={{
-                  fontSize,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  minimap: { enabled: true },
-                  wordWrap: 'on',
-                  scrollBeyondLastLine: false,
-                  lineNumbers: 'on',
-                  roundedSelection: false,
-                  automaticLayout: true,
-                  padding: { top: 16, bottom: 16 },
-                }}
-                onMount={(editor, monaco) => {
-                  editor.onDidChangeCursorPosition((e) => {
-                    setCursorPosition({
-                      ln: e.position.lineNumber,
-                      col: e.position.column
-                    });
-                  });
-
-                  editor.onDidChangeCursorSelection((e) => {
-                    const selection = editor.getSelection();
-                    if (selection) {
-                      const model = editor.getModel();
-                      if (model) {
-                        const selectedText = model.getValueInRange(selection);
-                        setSelectionCount(selectedText.length);
-                      }
-                    }
-                  });
-
-                  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-                    const code = editor.getValue();
-                    if (!isAnalyzing && code.trim()) {
-                      onAnalyze(code);
-                    }
-                  });
-                }}
+              <ModernMonacoEditor
+                file={activeFile}
+                theme={isDark ? 'dark' : 'light'}
+                fontSize={fontSize}
+                onChange={(code) => onCodeChange(activeFile.id, code)}
+                onCursorChange={(ln, col) => setCursorPosition({ ln, col })}
+                onSelectionChange={(count) => setSelectionCount(count)}
+                onAnalyze={(code) => onAnalyze(code)}
+                isAnalyzing={isAnalyzing}
               />
             </div>
           )}
