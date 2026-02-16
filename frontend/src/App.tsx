@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { loader } from '@monaco-editor/react';
 import { LandingPage } from './components/LandingPage';
-const EditorView = lazy(() => import('./components/EditorView').then(m => ({ default: m.EditorView })));
-const DashboardView = lazy(() => import('./components/DashboardView').then(m => ({ default: m.DashboardView })));
+import { EditorView } from './components/EditorView';
+import { DashboardView } from './components/DashboardView';
 const SharedView = lazy(() => import('./components/SharedView').then(m => ({ default: m.SharedView })));
 import { MobileWarning } from './components/MobileWarning';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -14,9 +15,16 @@ import {
   computeContentHash, StoredFile, getHistory, addHistoryEntry, clearHistory,
   getStoredRateLimit,
 } from './services/storageService';
-import { detectLanguage, detectLanguageAsync } from './utils/detectLanguage';
-import { warmUpMagika } from './services/magikaService';
+import { detectLanguage } from './utils/detectLanguage';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+
+// ─── Monaco Preloading ──────────────────────────────────────────────────
+// Preload Monaco in the background immediately (uses local assets from node_modules)
+loader.init().then(() => {
+  console.log('Monaco Editor preloaded successfully');
+}).catch((error) => {
+  console.error('Failed to preload Monaco:', error);
+});
 
 // ─── Detect share param ─────────────────────────────────────────────────
 
@@ -84,8 +92,7 @@ export const App: React.FC = () => {
     }
     setIsInitialized(true);
 
-    // Pre-warm Magika AI model so it's ready by the time user pastes code
-    warmUpMagika();
+
 
     // Sync with storage immediately
     const storedRL = getStoredRateLimit();
@@ -150,16 +157,7 @@ export const App: React.FC = () => {
     setFiles(prev => [...prev, newFile]);
     setActiveFileId(fileId);
 
-    // Refine with Magika AI in the background (if extension didn't already resolve)
-    if (!syncLanguage || !file.name.includes('.')) {
-      detectLanguageAsync(file.name, text).then(aiLanguage => {
-        if (aiLanguage && aiLanguage !== syncLanguage) {
-          setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, language: aiLanguage, lastModified: Date.now() } : f
-          ));
-        }
-      });
-    }
+
   }, []);
 
   const handleFileDelete = useCallback((id: string) => {
@@ -229,16 +227,7 @@ export const App: React.FC = () => {
           ));
         }
 
-        // Refine language with Magika AI asynchronously
-        const fileIdForAI = activeFileId;
-        const fileNameForAI = updates.name || activeFile.name;
-        detectLanguageAsync(fileNameForAI, code).then(aiLanguage => {
-          if (aiLanguage) {
-            setFiles(prev => prev.map(f =>
-              f.id === fileIdForAI ? { ...f, language: aiLanguage, lastModified: Date.now() } : f
-            ));
-          }
-        });
+
       }
 
       saveReport(activeFile.id, activeFile.contentHash, result);
@@ -274,7 +263,6 @@ export const App: React.FC = () => {
   // ─── Navigation ───────────────────────────────────────────────────────
 
   const handleGetStarted = useCallback(() => setView('editor'), []);
-  const handleBackToLanding = useCallback(() => setView('landing'), []);
   const handleBackToEditor = useCallback(() => setView('editor'), []);
 
   const handleGoHome = useCallback(() => {
@@ -297,7 +285,7 @@ export const App: React.FC = () => {
 
   return (
     <ThemeContext.Provider value={themeCtx}>
-      <div className="min-h-screen font-sans flex flex-col">
+      <div className="min-h-screen font-sans flex flex-col relative overflow-hidden">
         {/* Error toast */}
         {errorMessage && (
           <div className="fixed top-4 right-4 z-50 bg-red-900/90 border border-red-700 text-red-200 px-4 py-3 rounded shadow-xl flex items-center gap-3 max-w-md animate-fade-in">
@@ -324,46 +312,50 @@ export const App: React.FC = () => {
             </div>
           </div>
         }>
-          {/* Views */}
-          {view === 'shared' && shareId ? (
-            <SharedView shareId={shareId} onGoHome={handleGoHome} />
-          ) : view === 'dashboard' && analysisResult ? (
-            <DashboardView
-              result={analysisResult}
-              onNewAnalysis={handleBackToEditor}
-              onReanalyze={handleReanalyze}
-              isReanalyzing={isAnalyzing}
+          {/* Editor is always mounted to preserve Monaco instance */}
+          <div className={`absolute inset-0 ${view === 'editor' || view === 'landing' ? 'z-0' : 'z-[-1] opacity-0 pointer-events-none'}`}>
+            <EditorView
+              files={files}
+              activeFileId={activeFileId}
+              onFileSelect={setActiveFileId}
+              onFileCreate={handleFileCreate}
+              onFileDelete={handleFileDelete}
+              onFileUpload={handleFileUpload}
+              onCodeChange={handleCodeChange}
+              onLanguageChange={handleLanguageChange}
+              onAnalyze={handleAnalyze}
+              onViewReport={handleViewReport}
+              onShowHistory={() => setShowHistory(true)}
+              isAnalyzing={isAnalyzing}
+              hasValidReport={hasValidReport}
+              rateLimit={rateLimit}
             />
-          ) : (
-            <>
-              {/* Editor is always rendered in background for landing/editor views */}
-              <div className="absolute inset-0 z-0">
-                <EditorView
-                  files={files}
-                  activeFileId={activeFileId}
-                  onFileSelect={setActiveFileId}
-                  onFileCreate={handleFileCreate}
-                  onFileDelete={handleFileDelete}
-                  onFileUpload={handleFileUpload}
-                  onCodeChange={handleCodeChange}
-                  onLanguageChange={handleLanguageChange}
-                  onAnalyze={handleAnalyze}
-                  onViewReport={handleViewReport}
-                  onBack={handleBackToLanding}
-                  onShowHistory={() => setShowHistory(true)}
-                  isAnalyzing={isAnalyzing}
-                  hasValidReport={hasValidReport}
-                  rateLimit={rateLimit}
-                />
-              </div>
+          </div>
 
-              {/* Landing Page Overlay */}
-              {view === 'landing' && (
-                <div className="absolute inset-0 z-50">
-                  <LandingPage onGetStarted={handleGetStarted} />
-                </div>
-              )}
-            </>
+          {/* Landing Page Overlay */}
+          {view === 'landing' && (
+            <div className="absolute inset-0 z-50">
+              <LandingPage onGetStarted={handleGetStarted} />
+            </div>
+          )}
+
+          {/* Dashboard View - Always mounted but hidden when not active */}
+          <div className={`absolute inset-0 overflow-y-auto ${view === 'dashboard' && analysisResult ? 'z-10' : 'z-[-1] opacity-0 pointer-events-none'}`}>
+            {analysisResult && (
+              <DashboardView
+                result={analysisResult}
+                onNewAnalysis={handleBackToEditor}
+                onReanalyze={handleReanalyze}
+                isReanalyzing={isAnalyzing}
+              />
+            )}
+          </div>
+
+          {/* Shared View */}
+          {view === 'shared' && shareId && (
+            <div className="absolute inset-0 z-10 overflow-y-auto">
+              <SharedView shareId={shareId} onGoHome={handleGoHome} />
+            </div>
           )}
         </Suspense>
       </div>

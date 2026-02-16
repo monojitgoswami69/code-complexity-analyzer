@@ -10,12 +10,6 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const { isDark, toggleTheme } = useTheme();
   const [isExiting, setIsExiting] = React.useState(false);
-  const [isEntering, setIsEntering] = React.useState(true);
-
-  React.useEffect(() => {
-    // Trigger entry animation
-    requestAnimationFrame(() => setIsEntering(false));
-  }, []);
 
   // Transition Handler
   const handleTransition = () => {
@@ -25,7 +19,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   };
 
   const getTransform = () => {
-    if (isEntering) return 'translate-x-[100%]';
     if (isExiting) return 'translate-x-full';
     return 'translate-x-0';
   };

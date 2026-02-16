@@ -17,14 +17,13 @@ import uvicorn
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
-from redis.asyncio.connection import ConnectionPool
+
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -68,7 +67,7 @@ class Settings(BaseSettings):
     TEMPERATURE: float = Field(default=0.3)
 
     # CORS
-    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173")
+    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:3001,http://localhost:5173")
 
     # Rate limiting (Upstash Redis)
     UPSTASH_REDIS_URL: Optional[str] = Field(default=None)
@@ -388,7 +387,7 @@ async def create_redis_client() -> Redis | None:
         url = settings.UPSTASH_REDIS_URL.replace("https://", "").replace("http://", "")
         
         # H3: Connection pool configuration optimized for serverless
-        pool = ConnectionPool(
+        client = Redis(
             host=url,
             port=6379,
             password=settings.UPSTASH_REDIS_TOKEN,
@@ -399,8 +398,6 @@ async def create_redis_client() -> Redis | None:
             socket_connect_timeout=settings.REDIS_TIMEOUT_SECONDS,
             retry_on_timeout=False,  # Fail fast in serverless
         )
-        
-        client = Redis(connection_pool=pool)
         
         # Validate connection at startup
         await client.ping()
@@ -1017,8 +1014,6 @@ app.middleware("http")(security_headers_middleware)
 app.middleware("http")(request_size_middleware)
 app.middleware("http")(rate_limit_middleware)
 
-# L5: Add GZip compression for large responses
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # C2: Fix CORS configuration - never allow wildcard with credentials
 cors_origins = settings.cors_origins

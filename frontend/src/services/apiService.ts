@@ -5,7 +5,9 @@
 import { AnalysisResult, ComplexityRating, RateLimitInfo, ShareInfo } from '../types';
 import { setStoredRateLimit } from './storageService';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// In development, use Vite's proxy (relative URL) to avoid CORS entirely.
+// In production, use the full backend URL from env.
+const API_BASE = import.meta.env.VITE_API_URL || '';
 const API_V1 = `${API_BASE}/api/v1`;
 
 // ─── Helpers ───────────────────────────────────────────────────────────

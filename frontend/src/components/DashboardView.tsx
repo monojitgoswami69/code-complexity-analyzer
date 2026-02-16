@@ -69,7 +69,7 @@ function MetricCard({ title, value, rating, description, icon, isDark, className
 
 
   return (
-    <div className={`rounded-xl p-4 border transition-colors flex flex-col ${isDark ? `bg-[#111828] ${c.darkBg}` : `bg-white ${c.lightBg}`} ${className}`}>
+    <div className={`rounded-xl p-4 border transition-colors flex flex-col ${isDark ? 'bg-[#111828] border-slate-700/50' : 'bg-white border-slate-200'} ${className}`}>
       <div className="flex justify-between items-start mb-2">
         <span className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{title}</span>
         {icon || (rating === ComplexityRating.Good
@@ -114,30 +114,42 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
   const displayEndLine = hasLines ? startLine + issue.codeSnippet.split('\n').length - 1 : 1;
 
   // Extract lines with context if found, otherwise just show the snippet
-  let snippetValue = issue.codeSnippet || '// No code snippet available';
   let contextStart = 0;
 
-  if (hasLines) {
+  if (startLine !== -1) {
     contextStart = Math.max(0, displayStartLine - 3);
-    const contextEnd = Math.min(allLines.length - 1, displayEndLine + 2);
-    snippetValue = allLines.slice(contextStart, contextEnd + 1).join('\n');
   }
 
+  const normalizedSnippet = useMemo(() => {
+    if (!issue.codeSnippet) return '';
+    const lines = issue.codeSnippet.split('\n');
+    const minIndent = lines.reduce((min, line) => {
+      if (line.trim().length === 0) return min;
+      const match = line.match(/^\s*/);
+      const count = match ? match[0].length : 0;
+      return Math.min(min, count);
+    }, Infinity);
+
+    if (minIndent === Infinity || minIndent === 0) return issue.codeSnippet;
+    return lines.map(line => line.slice(minIndent)).join('\n');
+  }, [issue.codeSnippet]);
+
+  const snippetValue = normalizedSnippet;
   const prismLang = PRISM_LANGUAGE_MAP[language] || 'javascript';
 
   return (
-    <div className={`rounded-xl border transition-all overflow-hidden ${isDark ? 'bg-[#111828] border-slate-700/50' : 'bg-white border-slate-200'}`}>
-      <div className={`grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 ${isDark ? 'divide-slate-700/50' : 'divide-slate-200'}`}>
+    <div className={`rounded-xl border overflow-hidden transition-all ${isDark ? 'bg-[#111828] border-slate-700/50' : 'bg-white border-slate-200'}`}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-700/50">
 
-        {/* Section 1: Analysis */}
+        {/* Section 1: Content */}
         <div className="p-5 flex flex-col relative">
-          <div className="flex justify-between items-start mb-3">
-            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${isDark ? tc.dark : tc.light}`}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border ${tc.dark}`}>
               {issue.type}
             </span>
             {hasLines && (
-              <span className={`text-xs font-mono font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                LINE {displayStartLine}{displayEndLine > displayStartLine ? `-${displayEndLine}` : ''}
+              <span className={`text-[10px] font-mono opacity-50 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                LINES {displayStartLine}-{displayEndLine}
               </span>
             )}
           </div>
@@ -146,19 +158,21 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
         </div>
 
         {/* Section 2: Detection */}
-        <div className="p-5 flex flex-col bg-slate-900/10 relative">
-          <h5 className="text-[14px] font-black uppercase tracking-[0.2em] text-rose-500/70 mb-3 space-font">DETECTION</h5>
+        <div className="flex flex-col relative">
+          <div className="px-5 pt-4 pb-2">
+            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-500/70 space-font">DETECTION</h5>
+          </div>
           <div className="flex-1 overflow-hidden">
             <Highlight theme={isDark ? themes.vsDark : themes.vsLight} code={snippetValue} language={prismLang}>
               {({ className, tokens, getLineProps, getTokenProps }) => (
-                <pre className={`${className} bg-transparent p-0 m-0 text-[14px] font-mono leading-relaxed whitespace-pre-wrap break-words`} style={{ backgroundColor: 'transparent' }}>
+                <pre className={`${className} bg-transparent p-0 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {tokens.map((line, i) => {
                     const lineNo = hasLines ? contextStart + i + 1 : i + 1;
                     const isAffected = hasLines ? (lineNo >= displayStartLine && lineNo <= displayEndLine) : true;
                     return (
-                      <div key={i} {...getLineProps({ line, key: i })} className={`flex items-start ${isAffected ? 'bg-rose-500/10 border-l-2 border-rose-200' : ''}`}>
-                        <span className={`shrink-0 text-right pr-4 select-none opacity-30 text-[12px] w-12 font-mono leading-relaxed ${isAffected ? 'text-rose-500 opacity-80' : ''}`}>{lineNo}</span>
-                        <div className="flex-1 font-mono leading-relaxed whitespace-pre-wrap break-words">
+                      <div key={i} {...getLineProps({ line, key: i })} className={`grid grid-cols-[3rem_1fr] items-start ${isAffected ? (isDark ? 'bg-rose-500/10 border-l-2 border-rose-500/50' : 'bg-rose-50 border-l-2 border-rose-300') : 'border-l-2 border-transparent'}`}>
+                        <span className={`text-right pr-4 select-none opacity-30 text-[11px] font-mono leading-6 ${isAffected ? 'text-rose-500 opacity-80' : ''}`}>{lineNo}</span>
+                        <div className="font-mono leading-6 whitespace-pre-wrap break-words">
                           {line.map((token, key) => (
                             <span key={key} {...getTokenProps({ token, key })} />
                           ))}
@@ -173,16 +187,18 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
         </div>
 
         {/* Section 3: Suggested Fix */}
-        <div className="p-5 flex flex-col bg-slate-900/20 relative">
-          <h5 className="text-[14px] font-black uppercase tracking-[0.2em] text-emerald-500/70 mb-3 space-font">SUGGESTED FIX</h5>
+        <div className="flex flex-col relative">
+          <div className="px-5 pt-4 pb-2">
+            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-500/70 space-font">SUGGESTED FIX</h5>
+          </div>
           <div className="flex-1 overflow-hidden">
             <Highlight theme={isDark ? themes.vsDark : themes.vsLight} code={issue.fix || '// No suggested fix available'} language={prismLang}>
               {({ className, tokens, getLineProps, getTokenProps }) => (
-                <pre className={`${className} bg-transparent p-0 m-0 text-[14px] font-mono leading-relaxed whitespace-pre-wrap break-words`} style={{ backgroundColor: 'transparent' }}>
+                <pre className={`${className} bg-transparent p-0 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {tokens.map((line, i) => (
-                    <div key={i} {...getLineProps({ line, key: i })} className="flex items-start">
-                      <span className="shrink-0 text-right pr-4 select-none opacity-30 text-[12px] w-12 font-mono leading-relaxed">{i + 1}</span>
-                      <div className="flex-1 font-mono leading-relaxed whitespace-pre-wrap break-words">
+                    <div key={i} {...getLineProps({ line, key: i })} className="grid grid-cols-[3rem_1fr] items-start border-l-2 border-transparent">
+                      <span className="text-right pr-4 select-none opacity-30 text-[11px] font-mono leading-6">{i + 1}</span>
+                      <div className="font-mono leading-6 whitespace-pre-wrap break-words">
                         {line.map((token, key) => (
                           <span key={key} {...getTokenProps({ token, key })} />
                         ))}
@@ -382,7 +398,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   }`}>{result.timeComplexity.best.notation}</div>
                 <p className={`text-sm leading-relaxed flex-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{result.timeComplexity.best.description}</p>
                 {/* Vertical Separator */}
-                <div className={`hidden md:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r-2 ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
+                <div className={`hidden md:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
               </div>
 
               {/* Average Case Segment */}
@@ -395,7 +411,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   }`}>{result.timeComplexity.average.notation}</div>
                 <p className={`text-sm leading-relaxed flex-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{result.timeComplexity.average.description}</p>
                 {/* Vertical Separator */}
-                <div className={`hidden md:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r-2 ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
+                <div className={`hidden md:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
               </div>
 
               {/* Worst Case Segment */}
@@ -441,6 +457,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {result.timeComplexity.worst.notation}
               </span>
             </div>
+            {/* Vertical Separator */}
+            <div className={`hidden lg:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timeChartData} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
@@ -455,7 +473,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     label={{ value: 'Input Size (n)', position: 'insideBottom', offset: -15, fontSize: 13, fill: chartTick }}
                     tickFormatter={(val) => val === 0 ? '' : tickFormat(val)}
                   />
-                  <YAxis dataKey="ops" stroke={chartTick} tick={{ fontSize: 12, fill: chartTick }} tickLine={false} axisLine={false} width={60}
+                  <YAxis dataKey="ops" stroke={chartTick} tick={{ fontSize: 12, fill: chartTick }} tickLine={false} axisLine={false} width={60} allowDecimals={false}
                     label={{ value: 'Operations', angle: -90, position: 'insideLeft', fontSize: 13, fill: chartTick }}
                     tickFormatter={(val) => val === 0 ? '' : tickFormat(val)}
                   />
@@ -499,7 +517,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     label={{ value: 'Input Size (n)', position: 'insideBottom', offset: -15, fontSize: 13, fill: chartTick }}
                     tickFormatter={(val) => val === 0 ? '' : tickFormat(val)}
                   />
-                  <YAxis dataKey="memory" stroke={chartTick} tick={{ fontSize: 12, fill: chartTick }} tickLine={false} axisLine={false} width={60}
+                  <YAxis dataKey="memory" stroke={chartTick} tick={{ fontSize: 12, fill: chartTick }} tickLine={false} axisLine={false} width={60} allowDecimals={false}
                     label={{ value: 'Memory', angle: -90, position: 'insideLeft', fontSize: 13, fill: chartTick }}
                     tickFormatter={(val) => val === 0 ? '' : tickFormat(val)}
                   />

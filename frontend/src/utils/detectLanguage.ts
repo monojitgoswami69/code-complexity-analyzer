@@ -7,7 +7,7 @@
 // detector refines the result once the model is loaded.
 
 import { EXT_TO_LANGUAGE } from '../constants';
-import { detectWithMagika } from '../services/magikaService';
+
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -335,34 +335,4 @@ export function detectLanguage(fileName: string, content: string): string {
   return bestLang;
 }
 
-// ─── Async AI-Powered Detection (Google Magika) ─────────────────────────
 
-/**
- * **Async** language detection powered by Google's Magika AI model.
- *
- * Uses a three-tier strategy:
- *   1. Extension lookup (instant, authoritative)
- *   2. Magika deep-learning model (~99% accuracy, needs model load)
- *   3. Heuristic fallback (if Magika unavailable or returns unsupported label)
- *
- * @returns The TitleCase language name, or empty string if undetectable.
- */
-export async function detectLanguageAsync(fileName: string, content: string): Promise<string> {
-  // 1. Extension-based detection is always authoritative
-  if (fileName) {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext && EXT_TO_LANGUAGE[ext]) return EXT_TO_LANGUAGE[ext];
-  }
-
-  if (!content || content.trim().length < 10) return '';
-
-  // 2. Try Magika AI detection
-  const magikaResult = await detectWithMagika(content);
-
-  if (magikaResult && magikaResult.language && magikaResult.score > 0.5) {
-    return magikaResult.language;
-  }
-
-  // 3. Fall back to heuristic detection
-  return detectLanguage('', content);
-}

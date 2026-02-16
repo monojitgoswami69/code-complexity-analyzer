@@ -5,11 +5,11 @@ import { ModernMonacoEditor } from './ModernMonacoEditor';
 import { StoredFile } from '../services/storageService';
 import { useTheme } from '../hooks/useTheme';
 import { VERSION } from '../constants';
-import { detectLanguage, detectLanguageAsync } from '../utils/detectLanguage';
+import { detectLanguage } from '../utils/detectLanguage';
 import { RateLimitInfo } from '../types';
 import {
   FileCode, Plus, Upload, Trash2, Loader2, Zap, Code2, Eye,
-  FolderOpen, Sun, Moon, ArrowLeft, Clock,
+  FolderOpen, Sun, Moon, Clock,
 } from 'lucide-react';
 import {
   JavaScript,
@@ -64,7 +64,6 @@ interface EditorViewProps {
   onLanguageChange: (id: string, language: string) => void;
   onAnalyze: (code: string, forceReanalyze?: boolean) => void;
   onViewReport: () => void;
-  onBack: () => void;
   onShowHistory: () => void;
   isAnalyzing: boolean;
   hasValidReport: boolean;
@@ -75,7 +74,7 @@ interface EditorViewProps {
 
 export const EditorView: React.FC<EditorViewProps> = ({
   files, activeFileId, onFileSelect, onFileCreate, onFileDelete, onFileUpload,
-  onCodeChange, onLanguageChange, onAnalyze, onViewReport, onBack, onShowHistory,
+  onCodeChange, onLanguageChange, onAnalyze, onViewReport, onShowHistory,
   isAnalyzing, hasValidReport, rateLimit,
 }) => {
   const { isDark, toggleTheme } = useTheme();
@@ -111,23 +110,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   }, [detectedLanguage, activeFile, onLanguageChange]);
 
   // Async AI refinement with Magika (debounced)
-  useEffect(() => {
-    if (!activeFile || !activeFile.content || activeFile.content.trim().length < 10) return;
-    // Skip if extension already resolved the language
-    if (activeFile.name.includes('.')) {
-      const ext = activeFile.name.split('.').pop()?.toLowerCase();
-      if (ext) return; // extension-based is authoritative
-    }
-    const timer = setTimeout(() => {
-      const fileId = activeFile.id;
-      detectLanguageAsync(activeFile.name, activeFile.content).then(aiLang => {
-        if (aiLang && aiLang !== activeFile.language) {
-          onLanguageChange(fileId, aiLang);
-        }
-      });
-    }, 500); // 500ms debounce
-    return () => clearTimeout(timer);
-  }, [activeFile?.id, activeFile?.content, activeFile?.name, activeFile?.language, onLanguageChange]);
+
 
   useEffect(() => {
     localStorage.setItem('editor-font-size', fontSize.toString());
@@ -148,13 +131,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   return (
     <div className={`flex flex-col h-screen ${bg} text-slate-300 overflow-hidden`}>
-      <header className={`h-11 flex items-center justify-between px-3 ${isDark ? 'bg-[#181821]' : 'bg-[#DBDFE7]'} z-20`}>
+      <header className={`h-14 flex items-center justify-between px-4 ${isDark ? 'bg-[#181821]' : 'bg-[#DBDFE7]'} z-20 shadow-sm border-b ${isDark ? 'border-slate-800/50' : 'border-slate-300/50'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className={`p-1 rounded-md transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'}`}>
-            <ArrowLeft size={18} />
-          </button>
-          <span className={`font-black tracking-tighter kode-font text-[24px] ${textPrimary}`}>
-            CODALYZER<span className="text-blue-500 text-[12px] font-mono ml-2 opacity-70">// v{VERSION}</span>
+          <span className={`font-black tracking-tighter kode-font text-[28px] ${textPrimary} select-none`}>
+            CODALYZER<span className="text-blue-500 text-[14px] font-mono ml-2 opacity-70">// v{VERSION}</span>
           </span>
         </div>
 

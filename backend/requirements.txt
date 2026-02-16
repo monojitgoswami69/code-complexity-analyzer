@@ -3,23 +3,20 @@ fastapi==0.115.5
 uvicorn[standard]==0.34.0
 
 # Validation & Configuration
-pydantic==2.10.5
-pydantic-settings==2.7.1
+pydantic
+pydantic-settings
 
 # Environment
-python-dotenv==1.0.1
+python-dotenv
 
 # Google Gemini SDK
-google-genai==0.3.0
+google-genai
 
 # Redis (Upstash rate limiting + share storage)
-redis[hiredis]==5.2.1
+redis[hiredis]
 
 # HTTP client
-httpx==0.28.1
+httpx
 
 # Retry logic and resilience
-tenacity==9.0.0
-
-# Compression
-starlette-gzip==0.2.0
+tenacity
