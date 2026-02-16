@@ -113,16 +113,22 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
   const displayStartLine = hasLines ? startLine : 1;
   const displayEndLine = hasLines ? startLine + issue.codeSnippet.split('\n').length - 1 : 1;
 
-  // Extract lines with context if found, otherwise just show the snippet
-  let contextStart = 0;
-
-  if (startLine !== -1) {
-    contextStart = Math.max(0, displayStartLine - 3);
-  }
+  // Calculate context boundaries
+  const { snippetWithContext, actualContextStart } = useMemo(() => {
+    if (!issue.codeSnippet || !hasLines) {
+      return { snippetWithContext: issue.codeSnippet || '', actualContextStart: 0 };
+    }
+    const ctxStart = Math.max(1, displayStartLine - 2);
+    const ctxEnd = Math.min(allLines.length, displayEndLine + 2);
+    return {
+      snippetWithContext: allLines.slice(ctxStart - 1, ctxEnd).join('\n'),
+      actualContextStart: ctxStart - 1
+    };
+  }, [issue.codeSnippet, hasLines, allLines, displayStartLine, displayEndLine]);
 
   const normalizedSnippet = useMemo(() => {
-    if (!issue.codeSnippet) return '';
-    const lines = issue.codeSnippet.split('\n');
+    if (!snippetWithContext) return '';
+    const lines = snippetWithContext.split('\n');
     const minIndent = lines.reduce((min, line) => {
       if (line.trim().length === 0) return min;
       const match = line.match(/^\s*/);
@@ -130,16 +136,17 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
       return Math.min(min, count);
     }, Infinity);
 
-    if (minIndent === Infinity || minIndent === 0) return issue.codeSnippet;
+    if (minIndent === Infinity || minIndent === 0) return snippetWithContext;
     return lines.map(line => line.slice(minIndent)).join('\n');
-  }, [issue.codeSnippet]);
+  }, [snippetWithContext]);
 
   const snippetValue = normalizedSnippet;
+  const contextStart = actualContextStart;
   const prismLang = PRISM_LANGUAGE_MAP[language] || 'javascript';
 
   return (
     <div className={`rounded-xl border overflow-hidden transition-all ${isDark ? 'bg-[#111828] border-slate-700/50' : 'bg-white border-slate-200'}`}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-700/50">
+      <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 divide-slate-700/50">
 
         {/* Section 1: Content */}
         <div className="p-5 flex flex-col relative">
@@ -155,6 +162,8 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
           </div>
           <h4 className={`text-base font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>{issue.title}</h4>
           <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{issue.description}</p>
+          {/* Vertical Separator */}
+          <div className={`hidden lg:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
         </div>
 
         {/* Section 2: Detection */}
@@ -165,12 +174,12 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
           <div className="flex-1 overflow-hidden">
             <Highlight theme={isDark ? themes.vsDark : themes.vsLight} code={snippetValue} language={prismLang}>
               {({ className, tokens, getLineProps, getTokenProps }) => (
-                <pre className={`${className} bg-transparent p-0 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <pre className={`${className} bg-transparent pb-5 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {tokens.map((line, i) => {
                     const lineNo = hasLines ? contextStart + i + 1 : i + 1;
                     const isAffected = hasLines ? (lineNo >= displayStartLine && lineNo <= displayEndLine) : true;
                     return (
-                      <div key={i} {...getLineProps({ line, key: i })} className={`grid grid-cols-[3rem_1fr] items-start ${isAffected ? (isDark ? 'bg-rose-500/10 border-l-2 border-rose-500/50' : 'bg-rose-50 border-l-2 border-rose-300') : 'border-l-2 border-transparent'}`}>
+                      <div key={i} {...getLineProps({ line, key: i })} className={`grid grid-cols-[3rem_1fr] items-start ${isAffected ? (isDark ? 'bg-rose-500/10' : 'bg-rose-50') : ''}`}>
                         <span className={`text-right pr-4 select-none opacity-30 text-[11px] font-mono leading-6 ${isAffected ? 'text-rose-500 opacity-80' : ''}`}>{lineNo}</span>
                         <div className="font-mono leading-6 whitespace-pre-wrap break-words">
                           {line.map((token, key) => (
@@ -184,6 +193,8 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
               )}
             </Highlight>
           </div>
+          {/* Vertical Separator */}
+          <div className={`hidden lg:block absolute right-0 top-[5%] bottom-[5%] w-0 border-r ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`} />
         </div>
 
         {/* Section 3: Suggested Fix */}
@@ -192,22 +203,30 @@ function IssueCard({ issue, isDark, sourceCode, language }: { issue: Issue; isDa
             <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-500/70 space-font">SUGGESTED FIX</h5>
           </div>
           <div className="flex-1 overflow-hidden">
-            <Highlight theme={isDark ? themes.vsDark : themes.vsLight} code={issue.fix || '// No suggested fix available'} language={prismLang}>
-              {({ className, tokens, getLineProps, getTokenProps }) => (
-                <pre className={`${className} bg-transparent p-0 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  {tokens.map((line, i) => (
-                    <div key={i} {...getLineProps({ line, key: i })} className="grid grid-cols-[3rem_1fr] items-start border-l-2 border-transparent">
-                      <span className="text-right pr-4 select-none opacity-30 text-[11px] font-mono leading-6">{i + 1}</span>
-                      <div className="font-mono leading-6 whitespace-pre-wrap break-words">
-                        {line.map((token, key) => (
-                          <span key={key} {...getTokenProps({ token, key })} />
-                        ))}
+            {issue.fixType === 'no-code' ? (
+              <div className="px-5 pb-5">
+                <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {issue.fix || 'No suggested fix available'}
+                </p>
+              </div>
+            ) : (
+              <Highlight theme={isDark ? themes.vsDark : themes.vsLight} code={issue.fix || '// No suggested fix available'} language={prismLang}>
+                {({ className, tokens, getLineProps, getTokenProps }) => (
+                  <pre className={`${className} bg-transparent pb-5 m-0 text-[13px] leading-6 font-mono`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                    {tokens.map((line, i) => (
+                      <div key={i} {...getLineProps({ line, key: i })} className="grid grid-cols-[3rem_1fr] items-start border-l-2 border-transparent">
+                        <span className="text-right pr-4 select-none opacity-30 text-[11px] font-mono leading-6">{i + 1}</span>
+                        <div className="font-mono leading-6 whitespace-pre-wrap break-words">
+                          {line.map((token, key) => (
+                            <span key={key} {...getTokenProps({ token, key })} />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </pre>
-              )}
-            </Highlight>
+                    ))}
+                  </pre>
+                )}
+              </Highlight>
+            )}
           </div>
         </div>
 

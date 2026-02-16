@@ -18,10 +18,17 @@ import {
 import { detectLanguage } from './utils/detectLanguage';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
-// ─── Monaco Preloading ──────────────────────────────────────────────────
-// Preload Monaco in the background immediately (uses local assets from node_modules)
+// ─── Monaco Configuration ───────────────────────────────────────────────
+// Pin Monaco to the specific version from package.json and use CDN for engine assets
+loader.config({
+  paths: {
+    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs'
+  }
+});
+
+// Preload Monaco in the background for instant availability
 loader.init().then(() => {
-  console.log('Monaco Editor preloaded successfully');
+  console.log('Monaco Editor (CDN) preloaded successfully');
 }).catch((error) => {
   console.error('Failed to preload Monaco:', error);
 });
