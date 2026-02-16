@@ -708,8 +708,26 @@ class GeminiService:
 
         logger.debug("Gemini structured response received")
 
-        analysis = response.parsed
-        data = analysis.model_dump()
+        if not response.parsed:
+            # Fallback: Try to parse raw text if structured parsing failed
+            if response.text:
+                try:
+                    logger.warning("Structured parsing failed, attempting manual JSON parse")
+                    # Clean markdown code blocks if present
+                    text = response.text.replace("```json", "").replace("```", "").strip()
+                    data = json.loads(text)
+                except json.JSONDecodeError as exc:
+                    logger.error("Failed to parse fallback JSON: %s", exc)
+                    logger.error("Raw response: %s", response.text[:500])
+                    raise ValueError("Model returned invalid JSON structure") from exc
+            else:
+                # Log finish reason and safety ratings for debugging
+                logger.error("Empty response from Gemini. Finish reason: %s", response.candidates[0].finish_reason if response.candidates else "Unknown")
+                raise ValueError("Model returned empty response (possibly safety blocked)")
+        else:
+            analysis = response.parsed
+            data = analysis.model_dump()
+
         data["sourceCode"] = code
         data["timestamp"] = datetime.datetime.now().strftime("%b %d, %I:%M %p")
         
