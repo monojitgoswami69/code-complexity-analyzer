@@ -23,6 +23,8 @@ from google.genai import types
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
+from fastapi.responses import JSONResponse, FileResponse
+from pathlib import Path
 
 from tenacity import (
     retry,
@@ -88,8 +90,6 @@ class Settings(BaseSettings):
     GEMINI_TIMEOUT_SECONDS: int = Field(default=8)  # 8s for Gemini, 2s buffer
     REDIS_TIMEOUT_SECONDS: int = Field(default=2)
 
-    # Idempotency
-    IDEMPOTENCY_CACHE_TTL: int = Field(default=86400)  # 24 hours
 
     # Allowed file extensions
     ALLOWED_EXTENSIONS: str = Field(
@@ -136,13 +136,12 @@ logger = logging.getLogger("codalyzer")
 # ---------------------------------------------------------------------------
 
 SYSTEM_INSTRUCTION = """You are Codalyzer, an expert code complexity analyzer. Provide strictly structured outputs.
-
+- Statically analyze the code algorithms as well as semantic and logical flows to detect complexities and issues.
 - Rate complexity relative to the algorithm being implemented. Example: O(n²) is "Good" for Bubble Sort (optimal) but "Poor" for Merge Sort.
 - Use Big-O notation for time (best, average, worst) and space.
 - For each issue, return the exact problematic code snippet instead of line numbers.
-- Set fix_type to "code" when you supply code changes; otherwise use "no-code". The fix field is always required (code or text).
+- Set fix_type to "code" when you supply code snippet changes; otherwise use "no-code" if you supply text based fixes. The fix field is always required (code or no-code).
 - Provide only a concise code summary—no extra commentary.
-- Allowed ratings: Good, Fair, Poor.
 """
 
 
@@ -430,6 +429,28 @@ end
 return {ip_count, global_count}
 """
 
+_RATE_LIMIT_DECR_LUA = """
+local ip_count = 0
+if redis.call("EXISTS", KEYS[1]) == 1 then
+  ip_count = redis.call("DECR", KEYS[1])
+  if ip_count < 0 then
+    redis.call("SET", KEYS[1], 0)
+    ip_count = 0
+  end
+end
+
+local global_count = 0
+if redis.call("EXISTS", KEYS[2]) == 1 then
+  global_count = redis.call("DECR", KEYS[2])
+  if global_count < 0 then
+    redis.call("SET", KEYS[2], 0)
+    global_count = 0
+  end
+end
+
+return {ip_count, global_count}
+"""
+
 
 def _tz() -> ZoneInfo:
     return ZoneInfo(settings.RATE_LIMIT_TIMEZONE)
@@ -456,7 +477,6 @@ def _next_reset() -> datetime.datetime:
 async def get_remaining_requests(redis: Redis | None, ip: str) -> dict[str, int]:
     """Get remaining requests for IP and global limits."""
     if redis is None:
-        # H4: If Redis unavailable and rate limiting wa configured, this is an error state
         # Return zeros to indicate system degradation
         return {
             "user_remaining": 0,
@@ -502,19 +522,6 @@ async def rate_limit_middleware(request: Request, call_next):
         return await call_next(request)
 
     try:
-        # H5: Check for idempotency key
-        idempotency_key = request.headers.get("idempotency-key")
-        if idempotency_key and len(idempotency_key) <= 255:
-            # Check if we have a cached response
-            cache_key = f"codalyzer:idempotency:{idempotency_key}"
-            cached = await redis.get(cache_key)
-            if cached:
-                logger.info("Returning cached response for idempotency key: %s", idempotency_key[:16])
-                return JSONResponse(
-                    content=json.loads(cached),
-                    headers={"X-Idempotent-Replay": "true"},
-                )
-
         client_ip = get_client_ip(request)
         ip_key = _ip_key(client_ip)
         global_key = _global_key()
@@ -567,22 +574,24 @@ async def rate_limit_middleware(request: Request, call_next):
             )
 
         response = await call_next(request)
-        
-        # H5: Cache successful responses for idempotency
-        if idempotency_key and response.status_code == 200:
+
+        # Failure protection: If system/LLM fails (>=500), refund the quota
+        if response.status_code >= 500:
             try:
-                body = b""
-                async for chunk in response.body_iterator:
-                    body += chunk
-                cache_key = f"codalyzer:idempotency:{idempotency_key}"
-                await redis.setex(cache_key, settings.IDEMPOTENCY_CACHE_TTL, body.decode())
-                # Recreate response with body
-                response = JSONResponse(
-                    content=json.loads(body),
-                    status_code=200,
-                )
-            except Exception as exc:
-                logger.error("Failed to cache idempotent response: %s", exc)
+                # Refund and get updated counts
+                refund_result = await redis.eval(_RATE_LIMIT_DECR_LUA, 2, ip_key, global_key)
+                
+                # Update ip_count if refund was successful
+                if refund_result:
+                    ip_count = refund_result[0]
+                
+                logger.info("Refunded request for %s due to system error (status %d). New count: %d", client_ip, response.status_code, ip_count)
+                
+                _telemetry["requests_total"] -= 1
+                _telemetry["requests_failed"] += 1
+            except Exception as refund_exc:
+                logger.error("Failed to refund quota: %s", refund_exc)
+        
         
         response.headers["X-RateLimit-Limit"] = str(settings.DAILY_RATE_LIMIT)
         response.headers["X-RateLimit-Remaining"] = str(max(0, settings.DAILY_RATE_LIMIT - ip_count))
@@ -774,7 +783,8 @@ async def analyze_code(request: AnalyzeRequest):
         
         if not validate_issue_snippets(raw_issues):
             logger.error("Issue code snippet exceeds max length of %d chars", MAX_CODE_SNIPPET_LENGTH)
-            raise HTTPException(status_code=400, detail=f"Issue code snippet exceeds maximum length of {MAX_CODE_SNIPPET_LENGTH} characters")
+            # Return 500 to trigger rate limit refund (system failure to produce valid output)
+            raise HTTPException(status_code=500, detail=f"LLM generated invalid response detected (snippet too large)")
 
         time_complexity = TimeComplexity(
             best=ComplexityMetric(**data["timeComplexity"]["best"]),
@@ -1041,7 +1051,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=allow_credentials,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=[
         "X-RateLimit-Limit",
@@ -1049,7 +1059,6 @@ app.add_middleware(
         "X-RateLimit-Reset",
         "X-RateLimit-Global-Limit",
         "X-RateLimit-Global-Remaining",
-        "X-Idempotent-Replay",
         "Retry-After",
     ],
 )
@@ -1062,6 +1071,16 @@ async def root():
         "version": __version__,
         "status": "ok" if gemini_service.available else "unavailable",
     }
+
+ROOT_DIR = Path(__file__).resolve().parent
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Favicon endpoint."""
+    favicon_path = ROOT_DIR / "static" / "favicon.ico"
+    if favicon_path.exists():
+        return FileResponse(favicon_path)
+    return JSONResponse(status_code=404, content={"error": "favicon not found"})
 
 
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
@@ -1078,7 +1097,7 @@ app.include_router(analysis_router, tags=["analysis-compat"])
 def main():
     logger.info("Starting Codalyzer v2 on %s:%d", settings.HOST, settings.PORT)
     uvicorn.run(
-        "server:app",
+        "index:app",
         host=settings.HOST,
         port=settings.PORT,
         reload=True,
